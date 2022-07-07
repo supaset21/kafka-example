@@ -1,4 +1,4 @@
-# KFKAJS EXAMPLE
+# KAFKAJS EXAMPLE
 
 This project will show how to use kafkajs and schema-registry
 
