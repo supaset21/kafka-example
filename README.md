@@ -13,3 +13,9 @@ docker-compose up -d
 after you run command docker will start all about kafka container in this picture
 
 ![alt text](picture/container.png "Title")
+
+## Start KafkaJs
+
+```sh
+npm install
+```
