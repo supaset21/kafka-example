@@ -24,6 +24,10 @@ const sendMessage = () => {
     .send({
       topic,
       compression: CompressionTypes.GZIP,
+      // messages: [
+      //   { key: "key1", value: "hello world", partition: 0 },
+      //   { key: "key2", value: "hey hey!", partition: 1 },
+      // ],
       messages: messages,
     })
     .then(console.log)
@@ -32,6 +36,7 @@ const sendMessage = () => {
 
 const run = async () => {
   await producer.connect();
+  // sendMessage();
   setInterval(sendMessage, 3000);
 
   console.log("Kafka Connected");

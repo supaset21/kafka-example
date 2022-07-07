@@ -19,3 +19,23 @@ after you run command docker will start all about kafka container in this pictur
 ```sh
 npm install
 ```
+
+Can run producer with
+
+```sh
+node producer.js
+```
+
+you can see all messages in krafdrop
+
+Can run consume with
+
+```sh
+node consumer.js
+```
+
+**Note**
+
+Kafka will delete messages after commit 168 H
+
+https://stackoverflow.com/questions/28586008/delete-message-after-consuming-it-in-kafka
