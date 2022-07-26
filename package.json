@@ -1,5 +1,17 @@
 {
+  "scripts": {
+    "producer": "yarn tsc && pm2 start build/producer.js",
+    "consumer": "yarn tsc && pm2 start build/consumer.js",
+    "stop": "pm2 delete all"
+  },
   "dependencies": {
-    "kafkajs": "^2.1.0"
+    "dotenv": "^8.2.0",
+    "kafkajs": "^2.1.0",
+    "pm2": "^4.4.0",
+    "typescript": "^3.9.6"
+  },
+  "devDependencies": {
+    "@types/node": "^18.6.1",
+    "prettier": "^2.0.5"
   }
 }
