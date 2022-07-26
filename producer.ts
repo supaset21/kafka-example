@@ -6,7 +6,7 @@ const kafka = new Kafka({
   clientId: "example-producer",
 });
 
-const topic = "my-topic";
+const topic = "my-topic-";
 const producer = kafka.producer();
 
 const getRandomNumber = () => Math.round(Math.random() * 1000);
@@ -22,7 +22,7 @@ const sendMessage =  () => {
   // console.log('send messages --->',JSON.stringify(messages))
   return  producer
     .send({
-      topic,
+      topic: `${topic}${getTopic(Math.floor(Math.random() * 2))}`,
       compression: CompressionTypes.GZIP,
       // messages: [
       //   { key: "key1", value: "hello world", partition: 0 },
@@ -33,6 +33,11 @@ const sendMessage =  () => {
     .then(console.log)
     .catch((e) => console.error(`[example/producer] ${e.message}`, e));
 };
+
+const getTopic = (num: any) => {
+  const xxx = ['SPORTBOOK88', 'MGM', 'AMB_SPORTBOOK']
+  return xxx[num]
+}
 
 const run = async () => {
   console.log('will send message interval every 3 sec.')

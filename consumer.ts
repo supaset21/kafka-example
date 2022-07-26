@@ -6,7 +6,7 @@ const kafka = new Kafka({
   clientId: "example-consumer",
 });
 
-const topic = "my-topic";
+const topic = "my-topic-";
 const consumer = kafka.consumer({ groupId: "test-group" });
 
 const run = async () => {
@@ -24,7 +24,53 @@ const run = async () => {
   });
 };
 
-run().catch((e) => console.error(`[example/consumer] ${e.message}`, e));
+// ['SPORTBOOK88', 'MGM', 'AMB_SPORTBOOK']
+const runBatch = async () => {
+  await consumer.connect()
+  await consumer.subscribe({topic: `${topic}SPORTBOOK88`, fromBeginning: true});
+  await consumer.subscribe({topic: `${topic}MGM`, fromBeginning: true});
+  await consumer.subscribe({topic: `${topic}AMB_SPORTBOOK`, fromBeginning: true});
+  await consumer.run({
+      eachBatchAutoResolve: true,
+      eachBatch: async ({
+          batch,
+          resolveOffset,
+          heartbeat,
+          commitOffsetsIfNecessary,
+          uncommittedOffsets,
+          isRunning,
+          isStale,
+          pause,
+      }) => {
+          for (let message of batch.messages) {
+              // console.log({
+              //     topic: batch.topic,
+              //     partition: batch.partition,
+              //     highWatermark: batch.highWatermark,
+              //     message: {
+              //         offset: message.offset,
+              //         key: message && message.key ? message.key.toString(): null,
+              //         value: message && message.value ? message.value.toString(): null,
+              //         headers: message.headers,
+              //     }
+              // })
+              if (!isRunning() || isStale()) break
+              await processMessage(batch.topic, message)
+              resolveOffset(message.offset)
+              await heartbeat()
+          }
+      },
+  })
+}
+
+const processMessage = async (topic: string, message: any) => {
+  console.log(`consumer topic[${topic}] message -->  `,message);
+  // TO DO process follow topic.
+}
+
+// run().catch((e) => console.error(`[example/consumer] ${e.message}`, e));
+runBatch().catch((e) => console.error(`[example/consumer run batch] ${e.message}`, e));
+
 
 const errorTypes = ["unhandledRejection", "uncaughtException"];
 const signalTraps = ["SIGTERM", "SIGINT", "SIGUSR2"];

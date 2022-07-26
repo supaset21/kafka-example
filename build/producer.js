@@ -15,7 +15,7 @@ const kafka = new kafkajs_1.Kafka({
     brokers: [`127.0.0.1:9092`],
     clientId: "example-producer",
 });
-const topic = "my-topic";
+const topic = "my-topic-";
 const producer = kafka.producer();
 const getRandomNumber = () => Math.round(Math.random() * 1000);
 const createMessage = (num) => ({
@@ -29,7 +29,7 @@ const sendMessage = () => {
     // console.log('send messages --->',JSON.stringify(messages))
     return producer
         .send({
-        topic,
+        topic: `${topic}${getTopic(Math.floor(Math.random() * 2))}`,
         compression: kafkajs_1.CompressionTypes.GZIP,
         // messages: [
         //   { key: "key1", value: "hello world", partition: 0 },
@@ -39,6 +39,10 @@ const sendMessage = () => {
     })
         .then(console.log)
         .catch((e) => console.error(`[example/producer] ${e.message}`, e));
+};
+const getTopic = (num) => {
+    const xxx = ['SPORTBOOK88', 'MGM', 'AMB_SPORTBOOK'];
+    return xxx[num];
 };
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     console.log('will send message interval every 3 sec.');
