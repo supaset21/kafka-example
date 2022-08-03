@@ -1,4 +1,5 @@
 import {Kafka, logLevel}  from 'kafkajs'
+import delay from 'delay';
 
 const kafka = new Kafka({
   logLevel: logLevel.INFO,
@@ -6,30 +7,26 @@ const kafka = new Kafka({
   clientId: "example-consumer",
 });
 
-const topic = "my-topic-";
+const topic = "";
 const consumer = kafka.consumer({ groupId: "test-group" });
 
 const run = async () => {
   await consumer.connect();
-  await consumer.subscribe({ topic, fromBeginning: true });
+  const regx = new RegExp('^'+topic+'([A-Za-z]+)$')
+  await consumer.subscribe({topics: [regx], fromBeginning: true});
   await consumer.run({
-    autoCommit: true, // for acknowlage
-    // eachBatch: async ({ batch }) => {
-    //   console.log(batch)
-    // },
+    autoCommit: true,  
     eachMessage: async ({ topic, partition, message }) => {
-      const prefix = `${topic}[${partition} | ${message.offset}] / ${message.timestamp}`;
-      console.log(`- ${prefix} ${message.key}#${message.value}`);
+      console.log('partition <---- ',partition)
+      console.log(`<--- [${topic}] \t\t <---  \t\t\t\t\t`,message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null)
     },
   });
 };
 
-// ['SPORTBOOK88', 'MGM', 'AMB_SPORTBOOK']
 const runBatch = async () => {
   await consumer.connect()
-  await consumer.subscribe({topic: `${topic}SPORTBOOK88`, fromBeginning: true});
-  await consumer.subscribe({topic: `${topic}MGM`, fromBeginning: true});
-  await consumer.subscribe({topic: `${topic}AMB_SPORTBOOK`, fromBeginning: true});
+  const regx = new RegExp('^'+topic+'([A-Za-z]+)$')
+  await consumer.subscribe({topics: [regx], fromBeginning: true});
   await consumer.run({
       eachBatchAutoResolve: true,
       eachBatch: async ({
@@ -42,30 +39,53 @@ const runBatch = async () => {
           isStale,
           pause,
       }) => {
+          seperateAsync = {}
           for (let message of batch.messages) {
-              // console.log({
-              //     topic: batch.topic,
-              //     partition: batch.partition,
-              //     highWatermark: batch.highWatermark,
-              //     message: {
-              //         offset: message.offset,
-              //         key: message && message.key ? message.key.toString(): null,
-              //         value: message && message.value ? message.value.toString(): null,
-              //         headers: message.headers,
-              //     }
-              // })
-              if (!isRunning() || isStale()) break
-              await processMessage(batch.topic, message)
-              resolveOffset(message.offset)
-              await heartbeat()
+              // console.log('is runing --> ',isRunning(),'\n----> is stale - ',isStale())
+              if (!isRunning() || isStale()) {
+                break
+              } else  {
+                await convertToModel(batch, message)
+              }
           }
+          await processAsyncResolveOffset(seperateAsync, resolveOffset, heartbeat)
       },
   })
 }
 
-const processMessage = async (topic: string, message: any) => {
-  console.log(`consumer topic[${topic}] message -->  `,message);
-  // TO DO process follow topic.
+const processAsyncResolveOffset = async(seperateAsync: any, resolveOffset: any, heartbeat: any) => {
+  // console.log('seperateAsync||||||',seperateAsync)
+  for (const key in seperateAsync) {
+    // console.log('key++++++',key)
+    userProcess(key, seperateAsync, resolveOffset, heartbeat) // syncronous
+  }
+}
+
+const userProcess = async (key: any, seperateAsync: any, resolveOffset: any, heartbeat: any) => {
+  const taskArr = seperateAsync[key]
+  for (const message of taskArr) {
+    // console.log('message ++++ ',message)
+    await todoSomething(message)
+    // await resolveOffset(message.offset)
+    // await heartbeat()
+  }
+}
+
+const todoSomething = async (message: any) => {
+  console.log(`<--- [${message.batch.topic}] \t\t <---  \t\t\t\t\t`,message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null)
+  const steps = [1,2,3,4,5]
+  for(const step of steps)
+  {
+    console.log('\t\t\t\t\t\t\---------- ',message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null,'---do process = ',step);
+    await delay(2000)
+  }
+}
+
+let seperateAsync: any = {}
+const convertToModel = async (batch: any, message: any) => {
+  message.batch = batch
+  if(!seperateAsync[message.key]) seperateAsync[message.key] = []
+  seperateAsync[message.key].push(message)
 }
 
 // run().catch((e) => console.error(`[example/consumer] ${e.message}`, e));
