@@ -14,16 +14,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const kafkajs_1 = require("kafkajs");
 const delay_1 = __importDefault(require("delay"));
+const utils_1 = __importDefault(require("./utils"));
 const kafka = new kafkajs_1.Kafka({
     logLevel: kafkajs_1.logLevel.INFO,
     brokers: [`127.0.0.1:9092`],
     clientId: "example-consumer",
 });
-const topic = "";
+const topic = utils_1.default.getTopic();
 const consumer = kafka.consumer({ groupId: "test-group" });
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     yield consumer.connect();
-    const regx = new RegExp('^' + topic + '([A-Za-z]+)$');
+    const regx = utils_1.default.allTopic(topic);
     yield consumer.subscribe({ topics: [regx], fromBeginning: true });
     yield consumer.run({
         autoCommit: true,
@@ -35,47 +36,54 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
 });
 const runBatch = () => __awaiter(void 0, void 0, void 0, function* () {
     yield consumer.connect();
-    const regx = new RegExp('^' + topic + '([A-Za-z]+)$');
+    const regx = utils_1.default.allTopic(topic);
     yield consumer.subscribe({ topics: [regx], fromBeginning: true });
     yield consumer.run({
         eachBatchAutoResolve: true,
         eachBatch: ({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary, uncommittedOffsets, isRunning, isStale, pause, }) => __awaiter(void 0, void 0, void 0, function* () {
             seperateAsync = {};
+            console.log('batch [', batch.messages.length, ']');
             for (let message of batch.messages) {
                 // console.log('is runing --> ',isRunning(),'\n----> is stale - ',isStale())
                 if (!isRunning() || isStale()) {
                     break;
                 }
                 else {
+                    console.log('--convert--[', message && message.key ? message.key.toString() : null, ' --- ', message && message.value ? message.value.toString() : null, ']');
                     yield convertToModel(batch, message);
+                    console.log('---- end convert ----');
                 }
             }
+            console.log('start process resoleve off set.');
             yield processAsyncResolveOffset(seperateAsync, resolveOffset, heartbeat);
+            console.log('end resolve offset.\n------------\n');
         }),
     });
 });
 const processAsyncResolveOffset = (seperateAsync, resolveOffset, heartbeat) => __awaiter(void 0, void 0, void 0, function* () {
     // console.log('seperateAsync||||||',seperateAsync)
+    const usersExecute = [];
     for (const key in seperateAsync) {
         // console.log('key++++++',key)
-        userProcess(key, seperateAsync, resolveOffset, heartbeat); // syncronous
+        usersExecute.push(yield userProcess(key, seperateAsync, resolveOffset, heartbeat)); // syncronous
     }
+    yield Promise.all([usersExecute]);
 });
 const userProcess = (key, seperateAsync, resolveOffset, heartbeat) => __awaiter(void 0, void 0, void 0, function* () {
     const taskArr = seperateAsync[key];
     for (const message of taskArr) {
         // console.log('message ++++ ',message)
         yield todoSomething(message);
-        // await resolveOffset(message.offset)
-        // await heartbeat()
+        yield resolveOffset(message.offset);
+        yield heartbeat();
     }
 });
 const todoSomething = (message) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log(`<--- [${message.batch.topic}] \t\t <---  \t\t\t\t\t`, message && message.key ? message.key.toString() : null, ' --- ', message && message.value ? message.value.toString() : null);
+    console.log(`\t\t\t\t\t\t <---  \t\t\t\t\t`, message && message.key ? message.key.toString() : null, ' --- ', message && message.value ? message.value.toString() : null);
     const steps = [1, 2, 3, 4, 5];
     for (const step of steps) {
         console.log('\t\t\t\t\t\t\---------- ', message && message.key ? message.key.toString() : null, ' --- ', message && message.value ? message.value.toString() : null, '---do process = ', step);
-        yield delay_1.default(2000);
+        yield delay_1.default(utils_1.default.getChoiceDelay(utils_1.default.getRandomNumber(2)));
     }
 });
 let seperateAsync = {};
@@ -83,7 +91,7 @@ const convertToModel = (batch, message) => __awaiter(void 0, void 0, void 0, fun
     message.batch = batch;
     if (!seperateAsync[message.key])
         seperateAsync[message.key] = [];
-    seperateAsync[message.key].push(message);
+    yield seperateAsync[message.key].push(message);
 });
 // run().catch((e) => console.error(`[example/consumer] ${e.message}`, e));
 runBatch().catch((e) => console.error(`[example/consumer run batch] ${e.message}`, e));

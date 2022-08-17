@@ -1,5 +1,6 @@
 import { Kafka, Partitioners, CompressionTypes, logLevel } from "kafkajs";
-import { resolve } from "path";
+import Utils from './utils'
+import delay from 'delay';
 
 const kafka = new Kafka({
   logLevel: logLevel.INFO,
@@ -9,15 +10,10 @@ const kafka = new Kafka({
  
 const producer = kafka.producer();
 
-const getClient = (input: any) => {
-  const xxx = ['MGM', 'AMBFUN']
-  // console.log(input,'=======>',xxx[input])
-  return xxx[input]
-}
-
-const topic1 = `${getClient(0)}`;
-const topic2 = `${getClient(1)}`;
-const numPartitions = 3;  // if you have 4 partition custom then +1 = 5 cause 0 is deault
+const topic = Utils.getTopic();
+const topic1 = `${topic}${Utils.getClient(0)}`;
+const topic2 = `${topic}${Utils.getClient(1)}`;
+const numPartitions = 300;  // if you have 4 partition custom then +1 = 5 cause 0 is deault
 
 const createTopic = async () => {
   const admin = kafka.admin();
@@ -31,12 +27,11 @@ const createTopic = async () => {
   await admin.disconnect();
 }
 
-const getRandomNumber = (num: any) => Math.round(Math.random() * num);
 const createMessage = (CLIENT: any, userName: string) => {
   // const partition = getPartition(CLIENT, GAME)
   // console.log('partition------>',partition)
   const key = `${CLIENT+"-"+userName}`
-  const action = `${descriptState(getStateByKey(key))}`
+  const action = `${Utils.descriptState(getStateByKey(key))}`
   if(!action) return undefined
   return {
     key,
@@ -46,15 +41,10 @@ const createMessage = (CLIENT: any, userName: string) => {
   };
 }
 
-const descriptState = (num: any) => {
-  const xxx = [' B E T ', 'SETTLE', 'A-C-T-3', 'A-C-T-4', 'A-C-T-5', 'A-C-T-6', 'A-C-T-7', 'A-C-T-8']
-  return xxx[num-1]
-}
-
 const sendMessage = async () => {
-  const CLIENT = `${getClient(getRandomNumber(1))}`
+  const CLIENT = `${Utils.getClient(Utils.getRandomNumber(0))}`
   // const GAME = getGame(getRandomNumber())
-  const userName = `user-${getRandomNumber(4)}`
+  const userName = `user-${Utils.getRandomNumber(1)}`
   const topic = `${CLIENT}`
   const messages = [2]
     // .fill() 
@@ -67,53 +57,10 @@ const sendMessage = async () => {
     console.log('fuck off')
     process.exit(1)
   }
-  console.log('send messages --->\t', messages[0].key,'\t:\t',messages[0].value)
-  const result = await sendMessageRes(topic, messages)
+  // console.log('send messages --->\t', messages[0].key,'\t:\t',messages[0].value)
+  const result = await Utils.sendMessageRes(producer, CompressionTypes.GZIP, topic, messages)
   return result
 };
-
-const sendMessageRes =  async (topic:any, messages: any) => {
-  return new Promise((resolve, reject)=> {
-    producer
-    .send({
-      topic: topic,
-      compression: CompressionTypes.GZIP,
-      // messages: [
-      //   { key: "key-1", value: "hello world", partition: 0 },
-      //   { key: "key-2", value: "hey hey!", partition: 1 },
-      // ],
-      messages: messages,
-    })
-    .then((result:any) => { 
-      /*if(result && result[0]) console.log(`--> [${result[0].topicName}]\t\t - \t\tpartition[${result[0].partition}] - offset[${result[0].baseOffset}]`)*/
-      resolve(result)
-    })
-    .catch((e) => {
-      console.error(`[example/producer] ${e.message}`, e)
-      reject(e)
-    });
-  })
-  
-  
-}
-
-const getPartition = (CLIENT: string, GAME: string) => {
-  if(typeof CLIENT == 'string' && CLIENT) CLIENT = CLIENT.toLowerCase()
-  if(typeof GAME == 'string' && GAME) GAME = GAME.toLowerCase()
-  const xxx: any = { 
-    mgmpg: 1, mgmslotxo: 2, mgmambslot: 3, mgmyeekee: 4,
-    g2gbetpg: 1, g2gbetslotxo: 2, g2gbetambslot: 3, g2gbetyeekee: 4,
-    ambfunpg: 1, ambfunslotxo: 2, ambfunambslot: 3, ambfunyeekee: 4,
-  }
-  // console.log(input,' ---- ',xxx[input])
-  return xxx[`${CLIENT+GAME}`]
-}
-
-const getGame = (input: any) => {
-  const xxx = ['pg', 'slotxo', 'ambslot', 'yeekee']
-  // console.log(`${xxx}.${input} = ${xxx[input]}`)
-  return xxx[input]
-}
 
 let clientUsers: any = {}
 const getStateByKey = (key: string) => {
@@ -123,15 +70,16 @@ const getStateByKey = (key: string) => {
   return clientUsers[key]
 }
 
-
 const run = async () => {
-  console.log('will send message interval every 3 sec.')
   await createTopic();
   await producer.connect();
-  // sendMessage();
-  setInterval(sendMessage, 3000);
-
   console.log("Kafka Connected");
+  while (true) {
+    sendMessage()
+    const milliSec = Utils.getChoiceDelay(Utils.getRandomNumber(2))
+    console.log(`next message later ${milliSec/1000} sec.`)
+    await delay(milliSec)
+  }
 };
 
 run();

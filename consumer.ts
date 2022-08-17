@@ -1,5 +1,6 @@
 import {Kafka, logLevel}  from 'kafkajs'
 import delay from 'delay';
+import Utils from './utils';
 
 const kafka = new Kafka({
   logLevel: logLevel.INFO,
@@ -7,12 +8,12 @@ const kafka = new Kafka({
   clientId: "example-consumer",
 });
 
-const topic = "";
+const topic = Utils.getTopic();
 const consumer = kafka.consumer({ groupId: "test-group" });
 
 const run = async () => {
   await consumer.connect();
-  const regx = new RegExp('^'+topic+'([A-Za-z]+)$')
+  const regx = Utils.allTopic(topic)
   await consumer.subscribe({topics: [regx], fromBeginning: true});
   await consumer.run({
     autoCommit: true,  
@@ -25,7 +26,7 @@ const run = async () => {
 
 const runBatch = async () => {
   await consumer.connect()
-  const regx = new RegExp('^'+topic+'([A-Za-z]+)$')
+  const regx = Utils.allTopic(topic)
   await consumer.subscribe({topics: [regx], fromBeginning: true});
   await consumer.run({
       eachBatchAutoResolve: true,
@@ -40,25 +41,32 @@ const runBatch = async () => {
           pause,
       }) => {
           seperateAsync = {}
+          console.log('batch [',batch.messages.length,']')
           for (let message of batch.messages) {
               // console.log('is runing --> ',isRunning(),'\n----> is stale - ',isStale())
               if (!isRunning() || isStale()) {
                 break
               } else  {
+                console.log('--convert--[',message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null,']')
                 await convertToModel(batch, message)
+                console.log('---- end convert ----')
               }
           }
+          console.log('start process resoleve off set.')
           await processAsyncResolveOffset(seperateAsync, resolveOffset, heartbeat)
+          console.log('end resolve offset.\n------------\n')
       },
   })
 }
 
 const processAsyncResolveOffset = async(seperateAsync: any, resolveOffset: any, heartbeat: any) => {
   // console.log('seperateAsync||||||',seperateAsync)
+  const usersExecute = []
   for (const key in seperateAsync) {
     // console.log('key++++++',key)
-    userProcess(key, seperateAsync, resolveOffset, heartbeat) // syncronous
+    usersExecute.push(await userProcess(key, seperateAsync, resolveOffset, heartbeat)) // syncronous
   }
+  await Promise.all([usersExecute])
 }
 
 const userProcess = async (key: any, seperateAsync: any, resolveOffset: any, heartbeat: any) => {
@@ -66,18 +74,18 @@ const userProcess = async (key: any, seperateAsync: any, resolveOffset: any, hea
   for (const message of taskArr) {
     // console.log('message ++++ ',message)
     await todoSomething(message)
-    // await resolveOffset(message.offset)
-    // await heartbeat()
+    await resolveOffset(message.offset)
+    await heartbeat()
   }
 }
 
 const todoSomething = async (message: any) => {
-  console.log(`<--- [${message.batch.topic}] \t\t <---  \t\t\t\t\t`,message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null)
+  console.log(`\t\t\t\t\t\t <---  \t\t\t\t\t`,message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null)
   const steps = [1,2,3,4,5]
   for(const step of steps)
   {
     console.log('\t\t\t\t\t\t\---------- ',message && message.key ? message.key.toString(): null,' --- ',message && message.value ? message.value.toString(): null,'---do process = ',step);
-    await delay(2000)
+    await delay(Utils.getChoiceDelay(Utils.getRandomNumber(2)))
   }
 }
 
@@ -85,7 +93,7 @@ let seperateAsync: any = {}
 const convertToModel = async (batch: any, message: any) => {
   message.batch = batch
   if(!seperateAsync[message.key]) seperateAsync[message.key] = []
-  seperateAsync[message.key].push(message)
+  await seperateAsync[message.key].push(message)
 }
 
 // run().catch((e) => console.error(`[example/consumer] ${e.message}`, e));
